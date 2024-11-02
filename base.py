@@ -101,7 +101,7 @@ class PacketSnifferApp:
         self.stream_text.delete('1.0', tk.END)
         self.packets.clear()
 
-    # 添加筛选功能
+    # 筛选功能
     def filter_packets(self):
         protocol_filter = self.protocol_combo.get().lower()
         filtered_packets = []
