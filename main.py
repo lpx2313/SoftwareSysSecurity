@@ -8,7 +8,7 @@ class PacketSnifferApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Sniff嗅探器")
-        self.root.geometry("1600x720+100+100")
+        self.root.geometry("1200x720+100+100")
 
         self.style = ttk.Style()
         self.style.theme_use('clam')
