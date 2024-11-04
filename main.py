@@ -35,7 +35,7 @@ class PacketSnifferApp:
 
         ttk.Label(control_frame, text="选择协议过滤器:").pack(side=tk.LEFT, padx=5)
         self.protocol_combo = ttk.Combobox(control_frame, values=[
-            "全部", "tcp", "udp", "icmp", "arp", "http", "https", "dns", "ftp", "ssh"
+            "全部", "tcp", "udp", "http", "https", "dns", "ftp", "ssh"
         ], state="readonly")
         self.protocol_combo.current(0)
         self.protocol_combo.pack(side=tk.LEFT, padx=5)
@@ -122,50 +122,44 @@ class PacketSnifferApp:
             self.packet_callback(packet)
 
     def packet_callback(self, packet):
-        # TODO: 目前定位问题在这，报错WARNING: Socket <scapy.arch.libpcap.L2pcapListenSocket object at 0x0000000007F70D80> failed with 'src'. It was closed.
         print(packet.summary())
-        # self.packets.append(packet)
-        # index = len(self.packets)
-        #
-        # ip_version = "/"
-        # protocol = "/"
-        # src = "/"
-        # dst = "/"
-        #
-        # if packet.payload.name == "IP":
-        #     ip_version = "IPv4"
-        #     src = packet.payload.src
-        #     dst = packet.payload.dst
-        #     if packet.payload.payload.name == "TCP":
-        #         protocol = "TCP"
-        #     elif packet.payload.payload.name == "UDP":
-        #         protocol = "UDP"
-        # elif packet.payload.name == "IPv6":
-        #     ip_version = "IPv6"
-        #     src = packet.payload.src
-        #     dst = packet.payload.dst
-        #     if packet.payload.payload.name == "TCP":
-        #         protocol = "TCP"
-        #     elif packet.payload.payload.name == "UDP":
-        #         protocol = "UDP"
-        # elif packet.payload.name == "ARP":
-        #     ip_version = "ARP"
-        #     src = packet.payload.src
-        #     dst = packet.payload.dst
-        #     if packet.payload.payload.name == "TCP":
-        #         protocol = "TCP"
-        #     elif packet.payload.payload.name == "UDP":
-        #         protocol = "UDP"
-        # elif packet.payload.name == "LLC":
-        #     ip_version = "LLC"
-        #     src = packet.payload.src
-        #     dst = packet.payload.dst
-        #     if packet.payload.payload.name == "TCP":
-        #         protocol = "TCP"
-        #     elif packet.payload.payload.name == "UDP":
-        #         protocol = "UDP"
-        #
-        # self.packet_treeview.insert("", tk.END, values=(index, ip_version, protocol, src, dst))
+        self.packets.append(packet)
+        index = len(self.packets)
+
+        ip_version = "/"
+        protocol = "/"
+        src = "/"
+        dst = "/"
+
+        if packet.payload.name == "IP":
+            ip_version = "IPv4"
+            src = packet.payload.src
+            dst = packet.payload.dst
+            if packet.payload.payload.name == "TCP":
+                protocol = "TCP"
+            elif packet.payload.payload.name == "UDP":
+                protocol = "UDP"
+        elif packet.payload.name == "IPv6":
+            ip_version = "IPv6"
+            src = packet.payload.src
+            dst = packet.payload.dst
+            if packet.payload.payload.name == "TCP":
+                protocol = "TCP"
+            elif packet.payload.payload.name == "UDP":
+                protocol = "UDP"
+
+        elif packet.payload.name == "ARP":  # 忽略ARP
+            ip_version = "ARP"
+
+        elif packet.payload.name == "LLC":
+            ip_version = "LLC"
+
+        if ip_version not in ["ARP", "LLC"]:
+            self.packet_treeview.insert("", tk.END, values=(index, ip_version, protocol, src, dst))
+
+        else:
+            self.packets.pop()
+
 
     def start_sniffer(self, interface, protocol_filter):
         self.sniffing = True
