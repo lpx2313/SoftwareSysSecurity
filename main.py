@@ -7,7 +7,7 @@ import threading
 class PacketSnifferApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Sniff嗅探器")
+        self.root.title("刘鹏翔的Sniff嗅探器")
         self.root.geometry("1200x720+100+100")
 
         self.style = ttk.Style()
@@ -23,15 +23,20 @@ class PacketSnifferApp:
         self.interfaces = get_if_list()
         if_dicts = conf.ifaces
         self.interface_names = [if_dicts.data[key].description for key in self.interfaces]
+        self.interface_names.insert(0, "全部")
 
         control_frame = ttk.Frame(self.root, padding="10 10 10 10")
         control_frame.pack(side=tk.TOP, fill=tk.X)
 
-        ttk.Label(control_frame, text="选择网络接口:").pack(side=tk.LEFT, padx=5)
+        ttk.Label(control_frame, text="请选择要嗅探的网络接口:").pack(side=tk.LEFT, padx=5)
         self.interface_combo = ttk.Combobox(control_frame, values=self.interface_names, state="readonly", width=40)
         if self.interface_names:
             self.interface_combo.set(self.interface_names[0])
         self.interface_combo.pack(side=tk.LEFT, padx=5)
+
+        # 使用一个单独的Frame来排列协议选择器和自定义规则输入
+        protocol_frame = ttk.Frame(control_frame)
+        protocol_frame.pack(side=tk.LEFT, padx=5)
 
         ttk.Label(control_frame, text="选择协议过滤器:").pack(side=tk.LEFT, padx=5)
         self.protocol_combo = ttk.Combobox(control_frame, values=[
@@ -43,7 +48,7 @@ class PacketSnifferApp:
         self.start_button = ttk.Button(control_frame, text="开始嗅探", command=self.on_start_sniff)
         self.start_button.pack(side=tk.LEFT, padx=5)
 
-        self.stop_button = ttk.Button(control_frame, text="停止嗅探", command=self.on_stop_sniff)
+        self.stop_button = ttk.Button(control_frame, text="停止嗅探", command=self.on_stop_sniff, state="disabled")
         self.stop_button.pack(side=tk.LEFT, padx=5)
 
         self.clear_button = ttk.Button(control_frame, text="清屏", command=self.clear_display)
@@ -51,10 +56,6 @@ class PacketSnifferApp:
 
         self.tcp_stream_button = ttk.Button(control_frame, text="追踪TCP流", command=self.on_tcp_stream)
         self.tcp_stream_button.pack(side=tk.LEFT, padx=5)
-
-        # 添加筛选按钮
-        self.filter_button = ttk.Button(control_frame, text="筛选", command=self.filter_packets)
-        self.filter_button.pack(side=tk.LEFT, padx=5)
 
         packet_frame = ttk.Frame(self.root, padding="5")
         packet_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -101,28 +102,9 @@ class PacketSnifferApp:
         self.stream_text.delete('1.0', tk.END)
         self.packets.clear()
 
-    # 筛选功能
-    def filter_packets(self):
-        protocol_filter = self.protocol_combo.get().lower()
-        filtered_packets = []
-
-        if protocol_filter == "全部":
-            filtered_packets = self.packets
-        else:
-            for packet in self.packets:
-                if packet.payload.name.lower() == "ip" or packet.payload.name.lower() == "ipv6":
-                    if packet.payload.payload.name.lower() == protocol_filter:
-                        filtered_packets.append(packet)
-                elif packet.payload.name.lower() == protocol_filter:
-                    filtered_packets.append(packet)
-
-        self.clear_display()
-
-        for packet in filtered_packets:
-            self.packet_callback(packet)
 
     def packet_callback(self, packet):
-        print(packet.summary())
+        # print(packet.summary())
         self.packets.append(packet)
         index = len(self.packets)
 
@@ -139,6 +121,9 @@ class PacketSnifferApp:
                 protocol = "TCP"
             elif packet.payload.payload.name == "UDP":
                 protocol = "UDP"
+            elif packet.payload.payload.name == "ICMPv6":
+                protocol = "ICMPv6"
+
         elif packet.payload.name == "IPv6":
             ip_version = "IPv6"
             src = packet.payload.src
@@ -147,6 +132,8 @@ class PacketSnifferApp:
                 protocol = "TCP"
             elif packet.payload.payload.name == "UDP":
                 protocol = "UDP"
+            elif packet.payload.payload.name == "ICMPv6":
+                protocol = "ICMPv6"
 
         elif packet.payload.name == "ARP":  # 忽略ARP
             ip_version = "ARP"
@@ -181,15 +168,23 @@ class PacketSnifferApp:
 
         print(f"开始监听 {interface} 接口上的数据包，协议过滤器: {filter_str}...")
         try:
-            sniff(iface=interface, filter=filter_str, prn=self.packet_callback,
-                  stop_filter=lambda x: not self.sniffing)
+            if interface == "any":
+                sniff(filter=filter_str, prn=self.packet_callback,
+                      stop_filter=lambda x: not self.sniffing)
+            else:
+                sniff(iface=interface, filter=filter_str, prn=self.packet_callback,
+                        stop_filter=lambda x: not self.sniffing)
         except Exception as e:
             print(f"嗅探时出错: {e}")
 
     def on_start_sniff(self):
+        self.start_button.config(state="disabled")
+        self.stop_button.config(state="normal")
         if not self.sniffing:
-            interface = self.interfaces[self.interface_combo.current()]
+            interface = self.interfaces[self.interface_combo.current() - 1]
             protocol = self.protocol_combo.get()
+            if self.interface_combo.get() == "全部":
+                interface = "any"
 
             if interface:
                 self.sniffing = True
@@ -200,6 +195,8 @@ class PacketSnifferApp:
                 print("请选择一个网络接口！")
 
     def on_stop_sniff(self):
+        self.start_button.config(state="normal")
+        self.stop_button.config(state="disabled")
         self.sniffing = False
         print("嗅探已停止")
 
