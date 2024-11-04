@@ -86,6 +86,7 @@ class PacketSnifferApp:
         self.packet_treeview.column("src", width=200, anchor=tk.W)
         self.packet_treeview.column("dst", width=200, anchor=tk.W)
         self.packet_treeview.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.packet_treeview.bind('<<TreeviewSelect>>', self.on_packet_select)
 
         scrollbar = ttk.Scrollbar(packet_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -286,6 +287,25 @@ class PacketSnifferApp:
 
         for p in tcp_stream:
             text.insert(tk.END, f"{p.summary()}\n")
+
+    def on_packet_select(self, event):
+        """
+        用户选中数据包捕获
+        :param event:
+        :return:
+        """
+        selected_items = self.packet_treeview.selection()
+        if not selected_items:
+            return
+        index = int(self.packet_treeview.item(selected_items[0])["values"][0]) - 1
+        packet = self.packets[index]
+
+        self.detail_text.delete('1.0', tk.END)
+        self.detail_text.insert(tk.END, str(packet.show(dump=True)).replace("###", ""))
+
+        self.stream_text.delete('1.0', tk.END)
+        hex_data = ' '.join(f"{byte:02x}" for byte in bytes(packet))
+        self.stream_text.insert(tk.END, hex_data)
 
 
 def main():
