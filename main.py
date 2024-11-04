@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 from scapy.all import sniff, get_if_list, conf
 import threading
 
+
 class PacketSnifferApp:
     def __init__(self, root):
         self.root = root
@@ -21,7 +22,7 @@ class PacketSnifferApp:
     def setup_ui(self):
         self.interfaces = get_if_list()
         if_dicts = conf.ifaces
-        self.interface_names: list = [if_dicts.data[key].description for key in self.interfaces]
+        self.interface_names = [if_dicts.data[key].description for key in self.interfaces]
 
         control_frame = ttk.Frame(self.root, padding="10 10 10 10")
         control_frame.pack(side=tk.TOP, fill=tk.X)
