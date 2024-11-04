@@ -272,7 +272,7 @@ class PacketSnifferApp:
         new_window = tk.Toplevel(self.root)
         new_window.title("TCP流追踪")
 
-        # 设置窗口尺寸，这里设置为800x400可以自己调整
+        # 设置窗口尺寸
         new_window.geometry("800x400")
 
         text = tk.Text(new_window, wrap=tk.NONE)  # wrap=tk.NONE 表示不自动换行
