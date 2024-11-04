@@ -290,7 +290,7 @@ class PacketSnifferApp:
 
     def on_packet_select(self, event):
         """
-        用户选中数据包捕获
+        用户选中数据包捕获函数
         :param event:
         :return:
         """
