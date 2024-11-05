@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from scapy.all import sniff, get_if_list, conf
 import threading
-
+import ipaddress
 
 class PacketSnifferApp:
     def __init__(self, root):
@@ -18,6 +18,7 @@ class PacketSnifferApp:
         self.sniffer_thread = None
         self.sniffing = False
         self.packets = []
+        self.filtered_packets = []
         self.setup_ui()
 
     def setup_ui(self):
@@ -68,11 +69,25 @@ class PacketSnifferApp:
         self.tcp_stream_button = ttk.Button(control_frame, text="追踪TCP流", command=self.on_tcp_stream)
         self.tcp_stream_button.pack(side=tk.LEFT, padx=5)
 
+        # GUI展示当前捕获数据包
         packet_frame = ttk.Frame(self.root, padding="5")
         packet_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # GUI展示当前捕获数据包
-        ttk.Label(packet_frame, text="捕获数据包列表:").pack(anchor="w", pady=5)
+        label_frame = ttk.Frame(packet_frame)
+        label_frame.pack(side=tk.TOP, fill=tk.X)
+
+        ttk.Label(label_frame, text="捕获数据包列表(输入合法host地址筛选):").pack(side=tk.LEFT, anchor="w", pady=5)
+
+        # 添加一个文本输入框和筛选按钮
+        self.host_entry = ttk.Entry(label_frame, width=26)
+        self.host_entry.pack(side=tk.LEFT, padx=(10, 5))
+
+        self.filter_button = ttk.Button(label_frame, text="筛选", command=self.filter_packets, state="disabled")
+        self.filter_button.pack(side=tk.LEFT, padx=(5, 0))
+
+        self.reset_button = ttk.Button(label_frame, text="重置", command=self.reset_filter_packets, state="disabled")
+        self.reset_button.pack(side=tk.LEFT, padx=(5, 0))
+
         columns = ("index", "ip_version", "protocol", "src", "dst")
         self.packet_treeview = ttk.Treeview(packet_frame, columns=columns, show="headings")
         self.packet_treeview.heading("index", text="序号")
@@ -81,11 +96,11 @@ class PacketSnifferApp:
         self.packet_treeview.heading("src", text="源地址")
         self.packet_treeview.heading("dst", text="目标地址")
         self.packet_treeview.column("index", width=50, anchor=tk.CENTER)
-        self.packet_treeview.column("ip_version", width=80, anchor=tk.CENTER)
-        self.packet_treeview.column("protocol", width=100, anchor=tk.CENTER)
-        self.packet_treeview.column("src", width=200, anchor=tk.W)
-        self.packet_treeview.column("dst", width=200, anchor=tk.W)
-        self.packet_treeview.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.packet_treeview.column("ip_version", width=60, anchor=tk.CENTER)
+        self.packet_treeview.column("protocol", width=80, anchor=tk.CENTER)
+        self.packet_treeview.column("src", width=220, anchor=tk.W)
+        self.packet_treeview.column("dst", width=220, anchor=tk.W)
+        self.packet_treeview.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.packet_treeview.bind('<<TreeviewSelect>>', self.on_packet_select)
 
         scrollbar = ttk.Scrollbar(packet_frame)
@@ -106,6 +121,61 @@ class PacketSnifferApp:
         self.stream_text = tk.Text(detail_frame, height=20)
         self.stream_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
+    def reset_filter_packets(self):
+        """
+        重置筛选内容
+        :return:
+        """
+        self.filtered_packets = self.packets.copy()
+        self.packet_callback_filter(self.filtered_packets)
+
+    def filter_packets(self):
+        """
+        根据用户输入筛选host
+        :return:
+        """
+        self.filtered_packets.clear()
+        host_filter = self.host_entry.get().strip()
+        if host_filter == "":
+            self.filtered_packets = self.packets.copy()
+            for item in self.packet_treeview.get_children():
+                self.packet_treeview.delete(item)
+            self.packet_callback_filter(self.filtered_packets)
+
+        elif self.is_valid_ip(host_filter):
+            print(f"Filtering packets with valid host: {host_filter}")
+            # 过滤逻辑
+            # 清空Treeview中的当前内容
+            for item in self.packet_treeview.get_children():
+                self.packet_treeview.delete(item)
+
+            # 过滤并显示符合条件的数据包
+
+            for pkt in self.packets:
+                # try:
+                if pkt.payload.src == host_filter or pkt.payload.dst == host_filter:
+                    self.filtered_packets.append(pkt)
+                #     else:
+                #         pass
+                # except :
+                #     continue
+            self.packet_callback_filter(self.filtered_packets)
+        else:
+            messagebox.showwarning("无效IP地址", f"输入的地址 '{host_filter}' 不是合法的 IPv4 或 IPv6 地址。")
+
+    def is_valid_ip(self, address):
+        """
+        检查给定的地址是否是有效的IPv4或IPv6地址
+        :param address: 字符串形式的IP地址
+        :return: 如果是有效地址则返回True，否则返回False
+        """
+        try:
+            # 尝试创建 IPv4 或 IPv6 对象
+            ipaddress.ip_address(address)
+            return True
+        except ValueError:
+            return False
+
     def clear_display(self):
         """
         清屏按钮逻辑
@@ -116,6 +186,41 @@ class PacketSnifferApp:
         self.detail_text.delete('1.0', tk.END)
         self.stream_text.delete('1.0', tk.END)
         self.packets.clear()
+
+    def packet_callback_filter(self, filter_packets: list):
+        """
+        渲染过滤后的filter_packets
+        :param filter_packets:
+        :return:
+        """
+        for i, pkt in enumerate(filter_packets, start=1):
+            index = i
+            ip_version = "/"
+            protocol = "/"
+            src = "/"
+            dst = "/"
+            if pkt.payload.name == "IP":
+                ip_version = "IPv4"
+                src = pkt.payload.src
+                dst = pkt.payload.dst
+                if pkt.payload.payload.name == "TCP":
+                    protocol = "TCP"
+                elif pkt.payload.payload.name == "UDP":
+                    protocol = "UDP"
+                elif pkt.payload.payload.name == "ICMPv6":
+                    protocol = "ICMPv6"
+            elif pkt.payload.name == "IPv6":
+                ip_version = "IPv6"
+                src = pkt.payload.src
+                dst = pkt.payload.dst
+                if pkt.payload.payload.name == "TCP":
+                    protocol = "TCP"
+                elif pkt.payload.payload.name == "UDP":
+                    protocol = "UDP"
+                elif pkt.payload.payload.name == "ICMPv6":
+                    protocol = "ICMPv6"
+            self.packet_treeview.insert("", tk.END, values=(index, ip_version, protocol, src, dst))
+
 
     def packet_callback(self, packet):
         """
@@ -157,7 +262,7 @@ class PacketSnifferApp:
         elif packet.payload.name == "LLC":  # 忽略LLC，否则引起内存溢出
             ip_version = "LLC"
 
-        if ip_version not in ["ARP", "LLC"]:
+        if ip_version in ["IPv4", "IPv6"] and protocol != "/":
             self.packet_treeview.insert("", tk.END, values=(index, ip_version, protocol, src, dst))
         else:
             self.packets.pop()
@@ -210,6 +315,8 @@ class PacketSnifferApp:
         self.start_button.config(state="disabled")
         self.interface_combo.config(state="disabled")
         self.protocol_combo.config(state="disabled")
+        self.filter_button.config(state="disabled")
+        self.reset_button.config(state="disabled")
         self.stop_button.config(state="normal")
         if not self.sniffing:
             interface = self.interfaces[self.interface_combo.current() - 1]
@@ -234,6 +341,8 @@ class PacketSnifferApp:
         self.stop_button.config(state="disabled")
         self.interface_combo.config(state="normal")
         self.protocol_combo.config(state="normal")
+        self.filter_button.config(state="normal")
+        self.reset_button.config(state="normal")
         self.sniffing = False
         print("嗅探已停止")
 
