@@ -8,7 +8,7 @@ class PacketSnifferApp:
     def __init__(self, root):
         """
         初始化应用程序
-        :param root:
+        :param root: tk主界面根节点
         """
         self.root = root
         self.root.title("刘鹏翔的Sniff嗅探器")
@@ -24,7 +24,7 @@ class PacketSnifferApp:
     def setup_ui(self):
         """
         初始化GUI界面配置
-        :return:
+        :return: None
         """
         # 获取当前主机所有网卡信息
         self.interfaces = get_if_list()
@@ -78,7 +78,7 @@ class PacketSnifferApp:
 
         ttk.Label(label_frame, text="捕获数据包列表(输入合法host地址筛选):").pack(side=tk.LEFT, anchor="w", pady=5)
 
-        # 添加一个文本输入框和筛选按钮
+        # host输入框和筛选按钮
         self.host_entry = ttk.Entry(label_frame, width=26)
         self.host_entry.pack(side=tk.LEFT, padx=(10, 5))
 
@@ -136,6 +136,7 @@ class PacketSnifferApp:
         """
         self.filtered_packets.clear()
         host_filter = self.host_entry.get().strip()
+
         if host_filter == "":
             self.filtered_packets = self.packets.copy()
             for item in self.packet_treeview.get_children():
@@ -144,21 +145,16 @@ class PacketSnifferApp:
 
         elif self.is_valid_ip(host_filter):
             print(f"Filtering packets with valid host: {host_filter}")
-            # 过滤逻辑
+
             # 清空Treeview中的当前内容
             for item in self.packet_treeview.get_children():
                 self.packet_treeview.delete(item)
 
             # 过滤并显示符合条件的数据包
-
             for pkt in self.packets:
-                # try:
                 if pkt.payload.src == host_filter or pkt.payload.dst == host_filter:
                     self.filtered_packets.append(pkt)
-                #     else:
-                #         pass
-                # except :
-                #     continue
+
             self.packet_callback_filter(self.filtered_packets)
         else:
             messagebox.showwarning("无效IP地址", f"输入的地址 '{host_filter}' 不是合法的 IPv4 或 IPv6 地址。")
@@ -170,7 +166,7 @@ class PacketSnifferApp:
         :return: 如果是有效地址则返回True，否则返回False
         """
         try:
-            # 尝试创建 IPv4 或 IPv6 对象
+            # 尝试创建 IPv4 或 IPv6 对象, 成功说明用户输入host合法
             ipaddress.ip_address(address)
             return True
         except ValueError:
@@ -228,7 +224,6 @@ class PacketSnifferApp:
         :param packet:
         :return:
         """
-        # print(packet.summary())
         self.packets.append(packet)
         index = len(self.packets)
 
@@ -428,4 +423,5 @@ def main():
 
 
 if __name__ == "__main__":
+    # 启动入口
     main()
