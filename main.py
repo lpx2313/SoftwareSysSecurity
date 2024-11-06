@@ -126,6 +126,8 @@ class PacketSnifferApp:
         重置筛选内容
         :return:
         """
+        for item in self.packet_treeview.get_children():
+            self.packet_treeview.delete(item)
         self.filtered_packets = self.packets.copy()
         self.packet_callback_filter(self.filtered_packets)
 
